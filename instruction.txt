@@ -1,0 +1,75 @@
+# setup-django-gunicorn-nginx
+setup django  web application  using supervisor , gunicorn and nginx 
+
+
+# supervisor
+  ## create new file for supervisor
+  vim /etc/supervisorctl/conf.d/project_name.conf
+
+      [program:project_name]
+      command=/home/admin/.virtualenvs/project_name/bin/gunicorn project_name.wsgi:application -w 12 -b 0.0.0.0:8001 --reload
+      user=admin
+      directory=/home/admin/project_name
+      redirect_stderr=true
+      autostart=true
+      autorestart=true
+      priority=10
+## then run these command to update and restart the supervisor service
+
+      sudo supervisorctl reread
+      sudo supervisorctl update
+
+      sudo supervisorctl restart all
+
+
+# nginx cache
+  ## create new file for nginx file
+  vim /etc/nginx/site-available/example
+  
+    upstream appx { 
+    server 127.0.0.1:8001;
+    }
+
+    proxy_cache_path /home/ubuntu/cache/curd levels=1:2 keys_zone=curd:30m max_size=9g inactive=3d use_temp_path=off;
+
+    server {
+
+    listen 80;
+    listen [::]:80;
+    charset utf-8;
+    location / {
+      # Checks For Static File, If Not Found Proxy To App
+      try_files $uri @proxy_to_app;
+    }
+    server_name www.example.com example.com;
+    location /static/ {
+      autoindex on;
+      alias /home/ubuntu/example/static/;
+    }
+    # Django Gunicorn
+    location @proxy_to_app {
+      proxy_cache curd;
+      add_header X-Proxy-Cache $upstream_cache_status;
+      proxy_cache_valid  200 3d;
+      proxy_ignore_headers X-Accel-Expires Expires Cache-Control Set-Cookie Vary;
+      proxy_hide_header Cache-Control;
+      proxy_hide_header Set-Cookie;
+      add_header cache-control "private";
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass   http://appx;
+      }
+    }
+   ## then run these command to update and restart the nginx service
+
+      sudo nginx -t
+      sudo nginx -s reload
+      
+  ## create the cache folder for caching
+      mkdir cache
+  ## clean the caching
+      rm -rf cache/*
+      
+
+
